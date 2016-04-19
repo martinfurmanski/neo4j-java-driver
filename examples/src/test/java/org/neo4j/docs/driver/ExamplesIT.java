@@ -56,7 +56,7 @@ public class ExamplesIT
         }
 
         // Then
-        assertThat( stdIO.stdout(), equalTo( asList( "Neo is 23 years old." ) ) );
+        assertThat( stdIO.stdout(), equalTo( asList( "King Arthur" ) ) );
     }
 
     @Test
@@ -109,7 +109,7 @@ public class ExamplesIT
     }
 
     @Test
-    public void resultCursor() throws Throwable
+    public void resultTraversal() throws Throwable
     {
         StdIOCapture stdIO = new StdIOCapture();
         try ( AutoCloseable captured = stdIO.capture();
@@ -117,13 +117,31 @@ public class ExamplesIT
                 Session session = driver.session() )
         {
             session.run( "MATCH (n) DETACH DELETE n" );
-            session.run( "CREATE (p:Person { name: 'The One', age:23 })" );
+            session.run( "CREATE (weapon:Weapon { name: 'Sword in the stone' })" );
 
-            Examples.resultCursor( session );
+            Examples.resultTraversal( session );
         }
 
         // Then
-        assertThat( stdIO.stdout(), equalTo( asList( "p.age = 23" ) ) );
+        assertThat( stdIO.stdout(), equalTo( asList( "List of weapons called Sword:", "Sword in the stone" ) ) );
+    }
+
+    @Test
+    public void accessRecord() throws Throwable
+    {
+        StdIOCapture stdIO = new StdIOCapture();
+        try ( AutoCloseable captured = stdIO.capture();
+              Driver driver = GraphDatabase.driver( "bolt://localhost" );
+              Session session = driver.session() )
+        {
+            session.run( "MATCH (n) DETACH DELETE n" );
+            session.run( "CREATE (weapon:Weapon { name: 'Sword in the stone', owner: 'Arthur' })" );
+
+            Examples.accessRecord( session );
+        }
+
+        // Then
+        assertThat( stdIO.stdout(), equalTo( asList( "List of weapons owned by Arthur:", "[Sword: \"Sword in the stone\"]" ) ) );
     }
 
     @Test
@@ -135,12 +153,13 @@ public class ExamplesIT
                 Session session = driver.session() )
         {
             session.run( "MATCH (n) DETACH DELETE n" );
-            session.run( "CREATE (p:Person { name: 'The One', age:23 })" );
+            session.run( "CREATE (knight:Person:Knight { name: 'Lancelot', castle: 'Camelot' })" );
+            session.run( "CREATE (knight:Person { name: 'Arthur', title: 'King' })" );
 
             Examples.retainResultsForNestedQuerying( session );
 
             // Then
-            int theOnes = session.run( "MATCH (:Person)-[:HAS_TRAIT]->() RETURN count(*)" ).peek().get( 0 ).asInt();
+            int theOnes = session.run( "MATCH (:Knight)-[:DEFENDS]->() RETURN count(*)" ).peek().get( 0 ).asInt();
             assertEquals( 1, theOnes );
         }
     }
@@ -155,14 +174,31 @@ public class ExamplesIT
             try ( Session setup = driver.session() )
             {
                 setup.run( "MATCH (n) DETACH DELETE n" );
-                setup.run( "CREATE (p:Person { name: 'The One', age:23 })" );
+                setup.run( "CREATE (knight:Person:Knight { name: 'Lancelot', castle: 'Camelot' })" );
             }
 
             Examples.retainResultsForLaterProcessing( driver );
         }
 
         // Then
-        assertThat( stdIO.stdout(), equalTo( asList( "p.age = 23" ) ) );
+        assertThat( stdIO.stdout(), equalTo( asList( "Lancelotis a knight of Camelot" ) ) );
+    }
+
+    @Test
+    public void handleCypherError() throws Throwable
+    {
+        StdIOCapture stdIO = new StdIOCapture();
+        try ( AutoCloseable captured = stdIO.capture();
+              Driver driver = GraphDatabase.driver( "bolt://localhost" );
+              Session session = driver.session() )
+        {
+            Examples.handleCypherError( session );
+        }
+
+        assertThat( stdIO.stdout(), equalTo( asList(
+                "Invalid input 'T': expected <init> (line 1, column 1 (offset: 0))\n" +
+                        "\"This will cause a syntax error\"\n" +
+                        " ^") ) );
     }
 
     @Test
@@ -253,6 +289,16 @@ public class ExamplesIT
     public void trustSignedCertificates() throws Throwable
     {
         Driver driver = Examples.trustSignedCertificates();
+
+        // Then
+        assertNotNull( driver );
+        driver.close();
+    }
+
+    @Test
+    public void connectWithBasicAuth() throws Throwable
+    {
+        Driver driver = Examples.connectWithBasicAuth();
 
         // Then
         assertNotNull( driver );

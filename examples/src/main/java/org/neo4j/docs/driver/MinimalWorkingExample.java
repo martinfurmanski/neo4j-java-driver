@@ -35,13 +35,13 @@ public class MinimalWorkingExample
         Driver driver = GraphDatabase.driver( "bolt://localhost" );
         Session session = driver.session();
 
-        session.run( "CREATE (neo:Person {name:'Neo', age:23})" );
+        session.run( "CREATE (a:Person {name:'Arthur', title:'King'})" );
 
-        StatementResult result = session.run( "MATCH (p:Person) WHERE p.name = 'Neo' RETURN p.age" );
+        StatementResult result = session.run( "MATCH (a:Person) WHERE a.name = 'Arthur' RETURN a.name AS name, a.title AS title" );
         while ( result.hasNext() )
         {
             Record record = result.next();
-            System.out.println( "Neo is " + record.get( "p.age" ).asInt() + " years old." );
+            System.out.println( record.get( "title" ).asString() + " " + record.get("name").asString() );
         }
 
         session.close();
